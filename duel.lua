@@ -54,6 +54,9 @@ speedMode = false; laggerToggled = false
 autoBatEnabled = false; autoSwingEnabled = true
 autoLeftEnabled = false; autoRightEnabled = false
 autoBatActive = false
+infJumpEnabled = false
+stealSpeedEnabled = false
+antiKnockbackEnabled = false
 
 -- Speed label setup
 speedLabel = nil
@@ -83,9 +86,24 @@ if LP.Character then setupSpeedIndicator(LP.Character) end
 LP.CharacterAdded:Connect(setupSpeedIndicator)
 
 function getActiveMoveSpeed()
-   if laggerToggled and speedMode then return LAGGER_CARRY_SPEED
-   elseif laggerToggled then return LAGGER_SPEED
-   elseif speedMode then return CS else return NS end
+   if stealSpeedEnabled then
+       local closest = getClosestTarget()
+       if closest and closest.Parent then
+           local targetHum = closest.Parent:FindFirstChildOfClass("Humanoid")
+           if targetHum then
+               return targetHum.WalkSpeed + 12
+           end
+       end
+       return 75
+   elseif laggerToggled and speedMode then 
+       return LAGGER_CARRY_SPEED
+   elseif laggerToggled then 
+       return LAGGER_SPEED
+   elseif speedMode then 
+       return CS 
+   else 
+       return NS 
+   end
 end
 
 -- Movement engine
@@ -104,6 +122,16 @@ RunService.RenderStepped:Connect(function()
    local hum = char:FindFirstChildOfClass("Humanoid")
    local hrp = char:FindFirstChild("HumanoidRootPart")
    if not hum or not hrp then return end
+   
+   -- Anti Knockback Implementation
+   if antiKnockbackEnabled then
+       local md = hum.MoveDirection
+       if md.Magnitude == 0 and not autoBatEnabled and not autoLeftEnabled and not autoRightEnabled then
+           -- Kill any unexpected knockback forces instantly if sitting still
+           hrp.Velocity = Vector3.new(0, hrp.Velocity.Y, 0)
+       end
+   end
+
    if isRagdollState(hum) then lastMoveDir = Vector3.new(0,0,0); return end
    if not autoBatEnabled and not autoLeftEnabled and not autoRightEnabled then
        local md = hum.MoveDirection
@@ -118,6 +146,17 @@ RunService.RenderStepped:Connect(function()
        if actualSpeed < 0.05 then actualSpeed = 0 end
        speedLabel.Text = string.format("Speed: %.1f", actualSpeed)
    end
+end)
+
+-- Infinite Jump Hook
+UIS.JumpRequest:Connect(function()
+    if infJumpEnabled then
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
 end)
 
 -- Orbit System Paths
@@ -281,7 +320,7 @@ function stopBatAimbot()
    autoBatEnabled = false
    local hum2 = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
    if hum2 then hum2.AutoRotate = true end
-end
+ end
 
 -- ============================================================
 --  MAIN UI PANEL GENERATOR
@@ -335,14 +374,13 @@ function buildMainPanel()
     status.Size = UDim2.new(1, -24, 0, 30)
     status.Position = UDim2.new(0, 12, 0, 50)
     status.BackgroundTransparency = 1
-    status.Text = "STATUS: SYSTEM OPERATIONAL"
+    status.Text = "STATUS: ANTI-VELOCITY ACTIVE"
     status.TextColor3 = ATOMIC_COLORS.CORE
     status.Font = Enum.Font.Code
     status.TextSize = 12
     status.TextXAlignment = Enum.TextXAlignment.Left
     status.Parent = mainFrame
 
-    -- Simple Toggle Button inside Menu for visibility demo
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 80, 0, 24)
     closeBtn.Position = UDim2.new(1, -92, 0, 8)
@@ -361,7 +399,6 @@ function buildMainPanel()
         mainFrame.Visible = false
     end)
     
-    -- Dragging Logic for Mobile Touch
     local dragging, dragInput, dragStart, startPos
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -387,7 +424,7 @@ function buildMainPanel()
 end
 
 -- ============================================================
---  MOBILE BUTTON OVERLAYS
+--  MOBILE BUTTON OVERLAYS (EXTENDED GRID LAYOUT)
 -- ============================================================
 function buildMobileButtons()
    local mobileGui = Instance.new("ScreenGui")
@@ -403,7 +440,7 @@ function buildMobileButtons()
        btn.TextColor3 = TXT_C
        btn.Text = text
        btn.Font = Enum.Font.GothamBold
-       btn.TextSize = 11
+       btn.TextSize = 10
        btn.Parent = mobileGui
        
        local st = Instance.new("UIStroke")
@@ -446,29 +483,39 @@ function buildMobileButtons()
        laggerToggled = enabled; speedMode = enabled
    end
    MobileButtonActions.lagger = function(sa) laggerToggled = not laggerToggled end
+   MobileButtonActions.infJump = function(sa) infJumpEnabled = not infJumpEnabled end
+   MobileButtonActions.stealSpeed = function(sa) stealSpeedEnabled = not stealSpeedEnabled end
+   MobileButtonActions.antiKB = function(sa) antiKnockbackEnabled = not antiKnockbackEnabled end
    MobileButtonActions.toggleMenu = function()
        if mainFrame then mainFrame.Visible = not mainFrame.Visible end
    end
    
+   -- Row 1
    local setAL = makeBtn("autoLeft", "ORBIT\nLEFT", 1, 1, ACCENT)
    local setAR = makeBtn("autoRight", "ORBIT\nRIGHT", 2, 1, ICE)
+   
+   -- Row 2
    local setAB = makeBtn("autoBat", "RADAR AIM", 1, 2, ICE)
    local setSP = makeBtn("carry", "OVERDRIVE", 2, 2, ACCENT)
+   
+   -- Row 3
    makeBtn("drop", "NUKEOUT", 1, 3, ACCENT)
-   makeBtn("tpDown", "FALLOUT", 2, 3, ICE)
+   makeBtn("tpDown", "TP DOWN", 2, 3, ICE) 
+   
+   -- Row 4
    local setLC = makeBtn("lagCarry", "FISSION\nCARRY", 1, 4, ICE)
-   local setPLAY = makeBtn("toggleMenu", "TOGGLE\nMENU", 2, 4, ATOMIC_COLORS.TOXIC)
+   local setLG = makeBtn("lagger", "LAGGER\nSPEED", 2, 4, ACCENT)
+   
+   -- Row 5
+   local setIJ = makeBtn("infJump", "INFINITE\nJUMP", 1, 5, ACCENT)
+   local setSS = makeBtn("stealSpeed", "STEAL\nSPEED", 2, 5, ICE)
+   
+   -- Row 6 (Anti Knockback paired next to Menu Toggle)
+   local setAK = makeBtn("antiKB", "ANTI\nKNOCKBACK", 1, 6, ICE)
+   local setPLAY = makeBtn("toggleMenu", "TOGGLE\nMENU", 2, 6, ATOMIC_COLORS.TOXIC)
    
    RunService.Heartbeat:Connect(function()
        setAL(autoLeftEnabled)
        setAR(autoRightEnabled)
        setAB(autoBatActive)
        setSP(speedMode)
-       setLC(laggerToggled and speedMode)
-   end)
-end
-
--- Run Setup
-buildMainPanel()
-buildMobileButtons()
-print("Atomic Hub Loaded with Active UI Frame.")
