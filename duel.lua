@@ -1,5 +1,5 @@
 -- ============================================================
---  ATOMIC HUB - COMPLETE WORKING CORE
+--  ATOMIC HUB - COMPLETE FRAMEWORK & FUNCTIONAL PANEL UI
 -- ============================================================
 repeat task.wait() until game and game:IsLoaded()
 
@@ -16,15 +16,25 @@ pcall(function() CoreGui:FindFirstChild("CandyHub"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("CandyHubMobileButtons"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("AtomicHub"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("AtomicHubMobileButtons"):Destroy() end)
+pcall(function()
+   local pg = LP:FindFirstChild("PlayerGui")
+   if pg then
+       pcall(function() pg:FindFirstChild("AtomicHub"):Destroy() end)
+       pcall(function() pg:FindFirstChild("AtomicHubMobileButtons"):Destroy() end)
+   end
+end)
 
--- Colors Configuration
+-- Colors Configuration (Toxic Neon Green & Core Cyber Cyan)
 local ATOMIC_COLORS = {
-    TOXIC = Color3.fromRGB(57, 255, 20),      
-    CORE = Color3.fromRGB(30, 241, 222),       
-    INPUT = Color3.fromRGB(28, 28, 32),        
-    TEXT_DARK = Color3.fromRGB(140, 140, 150),  
-    BG = Color3.fromRGB(0,0,0), PANEL = Color3.fromRGB(0,0,0), CARD = Color3.fromRGB(9,9,12),
-    TEXT = Color3.fromRGB(240,240,240), STROKE = Color3.fromRGB(24,28,36)
+    TOXIC = Color3.fromRGB(57, 255, 20),      -- Neon Green
+    CORE = Color3.fromRGB(30, 241, 222),       -- Cyber Cyan
+    INPUT = Color3.fromRGB(28, 28, 32),        -- Dark Slate
+    TEXT_DARK = Color3.fromRGB(140, 140, 150),  -- Muted Gray
+    BG = Color3.fromRGB(12, 12, 14), 
+    PANEL = Color3.fromRGB(18, 18, 22), 
+    CARD = Color3.fromRGB(24, 24, 28),
+    TEXT = Color3.fromRGB(240,240,240), 
+    STROKE = Color3.fromRGB(40, 44, 52)
 }
 
 local ACCENT = ATOMIC_COLORS.TOXIC
@@ -33,7 +43,7 @@ local BG_BTN = ATOMIC_COLORS.INPUT
 local TXT_C = ATOMIC_COLORS.TEXT_DARK
 
 local IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-local GUI_W, GUI_H = IsMobile and 248 or 360, IsMobile and 360 or 462
+local GUI_W, GUI_H = IsMobile and 260 or 360, IsMobile and 300 or 400
 
 -- ============================================================
 --  GLOBAL STATE VARIABLES
@@ -42,14 +52,7 @@ NS = 60; CS = 30
 LAGGER_SPEED = 15; LAGGER_CARRY_SPEED = 24.5
 speedMode = false; laggerToggled = false
 autoBatEnabled = false; autoSwingEnabled = true
-batCounterEnabled = false; medusaCounterEnabled = false
 autoLeftEnabled = false; autoRightEnabled = false
-antiRagdollEnabled = false; unwalkEnabled = false
-autoTPEnabled = false; autoTPHeight = 20
-stretchRezEnabled = false; antiLagEnabled = false
-uiLocked = false; infJumpEnabled = false
-_anyKeyListening = false
-modeValLbl = nil
 autoBatActive = false
 
 -- Speed label setup
@@ -108,10 +111,6 @@ RunService.RenderStepped:Connect(function()
        if md.Magnitude > 0 then
            lastMoveDir = md
            hrp.Velocity = Vector3.new(md.X*spd, hrp.Velocity.Y, md.Z*spd)
-       elseif antiRagdollEnabled and lastMoveDir.Magnitude > 0 then
-           local anyHeld = false
-           for key in pairs(MOVE_KEYS) do if UIS:IsKeyDown(key) then anyHeld = true; break end end
-           if anyHeld then hrp.Velocity = Vector3.new(lastMoveDir.X*spd, hrp.Velocity.Y, lastMoveDir.Z*spd) end
        end
    end
    if speedLabel then
@@ -121,7 +120,7 @@ RunService.RenderStepped:Connect(function()
    end
 end)
 
--- Automation nodes
+-- Orbit System Paths
 AP_L1, AP_L2 = Vector3.new(-476.47,-6.28,92.73), Vector3.new(-483.12,-4.95,94.81)
 AP_R1, AP_R2 = Vector3.new(-476.16,-6.52,25.62), Vector3.new(-483.06,-5.03,25.48)
 alConn, arConn = nil, nil
@@ -153,10 +152,6 @@ function startAutoLeft()
            local tgt = Vector3.new(AP_L1.X, hrp.Position.Y, AP_L1.Z)
            if (tgt - hrp.Position).Magnitude < 1 then
                alPhase = 2
-               local d = AP_L2 - hrp.Position
-               local mv = Vector3.new(d.X, 0, d.Z).Unit
-               hum:Move(mv, false)
-               hrp.Velocity = Vector3.new(mv.X*spd, hrp.Velocity.Y, mv.Z*spd)
                return
            end
            local d = AP_L1 - hrp.Position
@@ -168,8 +163,7 @@ function startAutoLeft()
            if (tgt - hrp.Position).Magnitude < 1 then
                hum:Move(Vector3.zero, false); hrp.Velocity = Vector3.zero
                autoLeftEnabled = false
-               if alConn then alConn:Disconnect(); alConn = nil end
-               alPhase = 1
+               stopAutoLeft()
                return
            end
            local d = AP_L2 - hrp.Position
@@ -193,10 +187,6 @@ function startAutoRight()
            local tgt = Vector3.new(AP_R1.X, hrp.Position.Y, AP_R1.Z)
            if (tgt - hrp.Position).Magnitude < 1 then
                arPhase = 2
-               local d = AP_R2 - hrp.Position
-               local mv = Vector3.new(d.X, 0, d.Z).Unit
-               hum:Move(mv, false)
-               hrp.Velocity = Vector3.new(mv.X*spd, hrp.Velocity.Y, mv.Z*spd)
                return
            end
            local d = AP_R1 - hrp.Position
@@ -208,8 +198,7 @@ function startAutoRight()
            if (tgt - hrp.Position).Magnitude < 1 then
                hum:Move(Vector3.zero, false); hrp.Velocity = Vector3.zero
                autoRightEnabled = false
-               if arConn then arConn:Disconnect(); arConn = nil end
-               arPhase = 1
+               stopAutoRight()
                return
            end
            local d = AP_R2 - hrp.Position
@@ -220,7 +209,7 @@ function startAutoRight()
    end)
 end
 
--- Drop and Teleport functions
+-- Mechanics Execution
 function runDrop()
    local char = LP.Character
    local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -240,19 +229,13 @@ function runTPFloor()
    end
 end
 
--- Aimbot Calculations
+-- Target Engine
 aimbotConn = nil
 function findBat()
    local char = LP.Character
    if not char then return nil end
    for _,tool in ipairs(char:GetChildren()) do
        if tool:IsA("Tool") and (tool.Name:lower():find("bat") or tool.Name:lower():find("slap")) then return tool end
-   end
-   local bp = LP:FindFirstChild("Backpack")
-   if bp then
-       for _,tool in ipairs(bp:GetChildren()) do
-           if tool:IsA("Tool") and (tool.Name:lower():find("bat") or tool.Name:lower():find("slap")) then return tool end
-       end
    end
    return nil
 end
@@ -272,13 +255,6 @@ function getClosestTarget()
    end
    return closest
 end
-function swingCurrentBat()
-   if not autoSwingEnabled then return end
-   local bat = findBat()
-   if bat and bat.Parent == LP.Character and bat:IsA("Tool") then
-       pcall(function() bat:Activate() end)
-   end
-end
 function startBatAimbot()
    if aimbotConn then aimbotConn:Disconnect() end
    autoBatEnabled = true
@@ -291,57 +267,143 @@ function startBatAimbot()
        local root = char:FindFirstChild("HumanoidRootPart")
        local hum = char:FindFirstChildOfClass("Humanoid")
        if not root or not hum then return end
-       if not char:FindFirstChildOfClass("Tool") then
-           local bat = findBat()
-           if bat then pcall(function() hum:EquipTool(bat) end) end
-       end
        local target = getClosestTarget()
-       if not target then swingCurrentBat(); return end
-       local targetVel = target.Velocity
-       local myPos = root.Position
-       local targetPos = target.Position
-       local predictPos = targetPos + targetVel * 0.14
-       local direction = predictPos - myPos
+       if not target then return end
+       local direction = (target.Position + target.Velocity * 0.14) - root.Position
        local flatDir = Vector3.new(direction.X, 0, direction.Z).Unit
-       local chaseSpeed = 58
-       local desiredHeight = targetPos.Y + 3.7
-       local yVel = (desiredHeight - myPos.Y) * 19.5 + targetVel.Y * 0.8
-       if hum.FloorMaterial ~= Enum.Material.Air then yVel = math.max(yVel, 13) end
-       yVel = math.clamp(yVel, -70, 110)
-       local desiredVel = Vector3.new(flatDir.X * chaseSpeed, yVel, flatDir.Z * chaseSpeed)
-       root.Velocity = root.Velocity:Lerp(desiredVel, 0.8)
-       swingCurrentBat()
+       root.Velocity = Vector3.new(flatDir.X * 58, (target.Position.Y + 3.7 - root.Position.Y) * 19.5, flatDir.Z * 58)
+       local bat = findBat()
+       if bat and bat.Parent == char then bat:Activate() end
    end)
 end
 function stopBatAimbot()
    if aimbotConn then aimbotConn:Disconnect(); aimbotConn = nil end
    autoBatEnabled = false
-   local char = LP.Character
-   local root = char and char:FindFirstChild("HumanoidRootPart")
-   if root then root.Velocity = Vector3.zero; root.AssemblyAngularVelocity = Vector3.zero end
-   local hum2 = char and char:FindFirstChildOfClass("Humanoid")
+   local hum2 = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
    if hum2 then hum2.AutoRotate = true end
 end
 
 -- ============================================================
---  ATOMIC HUB MOBILE SCREEN BUTTONS LAYOUT
+--  MAIN UI PANEL GENERATOR
+-- ============================================================
+local mainFrame = nil
+function buildMainPanel()
+    local mainGui = Instance.new("ScreenGui")
+    mainGui.Name = "AtomicHub"
+    mainGui.ResetOnSpawn = false
+    mainGui.Parent = CoreGui
+    
+    mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, GUI_W, 0, GUI_H)
+    mainFrame.Position = UDim2.new(0.5, -GUI_W/2, 0.4, -GUI_H/2)
+    mainFrame.BackgroundColor3 = ATOMIC_COLORS.BG
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = mainGui
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 8)
+    c.Parent = mainFrame
+    
+    local st = Instance.new("UIStroke")
+    st.Color = ATOMIC_COLORS.STROKE
+    st.Thickness = 1.5
+    st.Parent = mainFrame
+
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 40)
+    header.BackgroundColor3 = ATOMIC_COLORS.PANEL
+    header.BorderSizePixel = 0
+    header.Parent = mainFrame
+    
+    local hc = Instance.new("UICorner")
+    hc.CornerRadius = UDim.new(0, 8)
+    hc.Parent = header
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 1, 0)
+    title.Position = UDim2.new(0, 12, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "ATOMIC HUB — CONTROL MATRIX"
+    title.TextColor3 = ATOMIC_COLORS.TOXIC
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 13
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+    
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(1, -24, 0, 30)
+    status.Position = UDim2.new(0, 12, 0, 50)
+    status.BackgroundTransparency = 1
+    status.Text = "STATUS: SYSTEM OPERATIONAL"
+    status.TextColor3 = ATOMIC_COLORS.CORE
+    status.Font = Enum.Font.Code
+    status.TextSize = 12
+    status.TextXAlignment = Enum.TextXAlignment.Left
+    status.Parent = mainFrame
+
+    -- Simple Toggle Button inside Menu for visibility demo
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 80, 0, 24)
+    closeBtn.Position = UDim2.new(1, -92, 0, 8)
+    closeBtn.BackgroundColor3 = ATOMIC_COLORS.INPUT
+    closeBtn.Text = "MINIMIZE"
+    closeBtn.TextColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 10
+    closeBtn.Parent = header
+    
+    local cc = Instance.new("UICorner")
+    cc.CornerRadius = UDim.new(0, 4)
+    cc.Parent = closeBtn
+    
+    closeBtn.Activated:Connect(function()
+        mainFrame.Visible = false
+    end)
+    
+    -- Dragging Logic for Mobile Touch
+    local dragging, dragInput, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ============================================================
+--  MOBILE BUTTON OVERLAYS
 -- ============================================================
 function buildMobileButtons()
    local mobileGui = Instance.new("ScreenGui")
    mobileGui.Name = "AtomicHubMobileButtons"
    mobileGui.ResetOnSpawn = false
-   mobileGui.Parent = IsMobile and LP:WaitForChild("PlayerGui") or CoreGui
+   mobileGui.Parent = CoreGui
 
-   local function makeBtn(actionKey, name, text, x, y, accentColor)
+   local function makeBtn(actionKey, text, x, y, accentColor)
        local btn = Instance.new("TextButton")
-       btn.Name = name
        btn.Size = UDim2.new(0, 90, 0, 45)
-       btn.Position = UDim2.new(0, 10 + (x-1)*100, 0, 100 + (y-1)*55)
+       btn.Position = UDim2.new(0, 10 + (x-1)*100, 0, 140 + (y-1)*55)
        btn.BackgroundColor3 = BG_BTN
        btn.TextColor3 = TXT_C
        btn.Text = text
        btn.Font = Enum.Font.GothamBold
-       btn.TextSize = 12
+       btn.TextSize = 11
        btn.Parent = mobileGui
        
        local st = Instance.new("UIStroke")
@@ -358,8 +420,7 @@ function buildMobileButtons()
            TS:Create(btn, TweenInfo.new(0.15), {TextColor3 = isOn and accentColor or TXT_C}):Play()
        end
        btn.Activated:Connect(function()
-           local action = MobileButtonActions[actionKey]
-           if action then action(setActive) end
+           MobileButtonActions[actionKey](setActive)
        end)
        return setActive
    end
@@ -374,46 +435,40 @@ function buildMobileButtons()
        if autoRightEnabled then startAutoRight() else stopAutoRight() end
    end
    MobileButtonActions.autoBat = function(sa)
-       if not autoBatActive then
-           startBatAimbot()
-           autoBatActive = true
-       else
-           stopBatAimbot()
-           autoBatActive = false
-       end
+       autoBatActive = not autoBatActive
+       if autoBatActive then startBatAimbot() else stopBatAimbot() end
    end
-   MobileButtonActions.carry = function(sa)
-       speedMode = not speedMode
-   end
+   MobileButtonActions.carry = function(sa) speedMode = not speedMode end
    MobileButtonActions.drop = function(sa) runDrop() end
    MobileButtonActions.tpDown = function(sa) runTPFloor() end
    MobileButtonActions.lagCarry = function(sa)
        local enabled = not (laggerToggled and speedMode)
        laggerToggled = enabled; speedMode = enabled
    end
-   MobileButtonActions.lagger = function(sa)
-       laggerToggled = not laggerToggled
+   MobileButtonActions.lagger = function(sa) laggerToggled = not laggerToggled end
+   MobileButtonActions.toggleMenu = function()
+       if mainFrame then mainFrame.Visible = not mainFrame.Visible end
    end
    
-   local setAL = makeBtn("autoLeft", "AutoLeft", "ORBIT\nLEFT", 1, 1, ACCENT)
-   local setAR = makeBtn("autoRight", "AutoRight", "ORBIT\nRIGHT", 2, 1, ICE)
-   local setAB = makeBtn("autoBat", "AutoBat", "RADAR AIM", 1, 2, ICE)
-   local setSP = makeBtn("carry", "CarrySpeed", "OVERDRIVE", 2, 2, ACCENT)
-   makeBtn("drop", "DropBrainrot", "NUKEOUT", 1, 3, ACCENT)
-   makeBtn("tpDown", "TPDown", "FALLOUT", 2, 3, ICE)
-   local setLC = makeBtn("lagCarry", "LaggerCarry", "FISSION\nCARRY", 1, 4, ICE)
-   local setLG = makeBtn("lagger", "LaggerSpeed", "FISSION\nSPEED", 2, 4, ACCENT)
+   local setAL = makeBtn("autoLeft", "ORBIT\nLEFT", 1, 1, ACCENT)
+   local setAR = makeBtn("autoRight", "ORBIT\nRIGHT", 2, 1, ICE)
+   local setAB = makeBtn("autoBat", "RADAR AIM", 1, 2, ICE)
+   local setSP = makeBtn("carry", "OVERDRIVE", 2, 2, ACCENT)
+   makeBtn("drop", "NUKEOUT", 1, 3, ACCENT)
+   makeBtn("tpDown", "FALLOUT", 2, 3, ICE)
+   local setLC = makeBtn("lagCarry", "FISSION\nCARRY", 1, 4, ICE)
+   local setPLAY = makeBtn("toggleMenu", "TOGGLE\nMENU", 2, 4, ATOMIC_COLORS.TOXIC)
    
    RunService.Heartbeat:Connect(function()
        setAL(autoLeftEnabled)
        setAR(autoRightEnabled)
        setAB(autoBatActive)
-       setLG(laggerToggled)
        setSP(speedMode)
        setLC(laggerToggled and speedMode)
    end)
 end
 
--- Execute mobile layers
+-- Run Setup
+buildMainPanel()
 buildMobileButtons()
-print("Atomic Hub UI Systems Ready.")
+print("Atomic Hub Loaded with Active UI Frame.")
