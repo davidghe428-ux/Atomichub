@@ -1,5 +1,5 @@
 -- ============================================================
---  ATOMIC HUB - COMPLETE CORE FRAMEWORK & INTERFACE
+--  ATOMIC HUB - COMPLETE WORKING CORE
 -- ============================================================
 repeat task.wait() until game and game:IsLoaded()
 
@@ -16,22 +16,13 @@ pcall(function() CoreGui:FindFirstChild("CandyHub"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("CandyHubMobileButtons"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("AtomicHub"):Destroy() end)
 pcall(function() CoreGui:FindFirstChild("AtomicHubMobileButtons"):Destroy() end)
-pcall(function()
-   local pg = LP:FindFirstChild("PlayerGui")
-   if pg then
-       pcall(function() pg:FindFirstChild("CandyHub"):Destroy() end)
-       pcall(function() pg:FindFirstChild("CandyHubMobileButtons"):Destroy() end)
-       pcall(function() pg:FindFirstChild("AtomicHub"):Destroy() end)
-       pcall(function() pg:FindFirstChild("AtomicHubMobileButtons"):Destroy() end)
-   end
-end)
 
--- Colors Configuration (Toxic Neon Green & Core Cyber Cyan)
+-- Colors Configuration
 local ATOMIC_COLORS = {
-    TOXIC = Color3.fromRGB(57, 255, 20),      -- Neon Green
-    CORE = Color3.fromRGB(30, 241, 222),       -- Cyber Cyan
-    INPUT = Color3.fromRGB(28, 28, 32),        -- Dark Slate
-    TEXT_DARK = Color3.fromRGB(140, 140, 150),  -- Muted Gray
+    TOXIC = Color3.fromRGB(57, 255, 20),      
+    CORE = Color3.fromRGB(30, 241, 222),       
+    INPUT = Color3.fromRGB(28, 28, 32),        
+    TEXT_DARK = Color3.fromRGB(140, 140, 150),  
     BG = Color3.fromRGB(0,0,0), PANEL = Color3.fromRGB(0,0,0), CARD = Color3.fromRGB(9,9,12),
     TEXT = Color3.fromRGB(240,240,240), STROKE = Color3.fromRGB(24,28,36)
 }
@@ -43,13 +34,6 @@ local TXT_C = ATOMIC_COLORS.TEXT_DARK
 
 local IsMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 local GUI_W, GUI_H = IsMobile and 248 or 360, IsMobile and 360 or 462
-local HDR_H = IsMobile and 52 or 58
-local PAD = IsMobile and 8 or 10
-local PROGRESS_H = 30                       
-local PAGE_TOP = HDR_H + (IsMobile and 10 or 12)
-local PAGE_BOTTOM = PAGE_TOP + (IsMobile and 8 or 10)
-local ROW_H = IsMobile and 28 or 31
-local SECTION_H = IsMobile and 16 or 18
 
 -- ============================================================
 --  GLOBAL STATE VARIABLES
@@ -66,7 +50,6 @@ stretchRezEnabled = false; antiLagEnabled = false
 uiLocked = false; infJumpEnabled = false
 _anyKeyListening = false
 modeValLbl = nil
-setTopLockVisual = nil
 autoBatActive = false
 
 -- Speed label setup
@@ -90,7 +73,7 @@ function setupSpeedIndicator(char)
    val.Size = UDim2.new(1,0,0,26); val.Position = UDim2.new(0,0,0,24)
    val.BackgroundTransparency = 1; val.Text = "Speed: 0.0"
    val.TextColor3 = ATOMIC_COLORS.TOXIC; val.Font = Enum.Font.GothamBlack
-   val.TextSize = 17; tag.TextXAlignment = Enum.TextXAlignment.Center
+   val.TextSize = 17; val.TextXAlignment = Enum.TextXAlignment.Center
    speedLabel = val
 end
 if LP.Character then setupSpeedIndicator(LP.Character) end
@@ -237,82 +220,8 @@ function startAutoRight()
    end)
 end
 
--- Physics Modification / Jump Overrides
-holdJumpPressed, holdJumpActive = false, false
-function applyInfJumpBoost(boost)
-   if not infJumpEnabled then return end
-   local char = LP.Character
-   if char then
-       local root = char:FindFirstChild("HumanoidRootPart")
-       if root then root.Velocity = Vector3.new(root.Velocity.X, boost, root.Velocity.Z) end
-   end
-end
-UIS.JumpRequest:Connect(function() applyInfJumpBoost(50) end)
-UIS.InputBegan:Connect(function(input)
-   if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Space and not UIS:GetFocusedTextBox() then
-       holdJumpPressed = true
-       task.wait(0.12)
-       if holdJumpPressed then holdJumpActive = true; applyInfJumpBoost(50) end
-   end
-end)
-UIS.InputEnded:Connect(function(input)
-   if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Space then holdJumpPressed = false; holdJumpActive = false end
-end)
-RunService.Heartbeat:Connect(function() if holdJumpActive then applyInfJumpBoost(50) end end)
-
--- Positional Teleportation
-function doAutoTPDown(force)
-   local char = LP.Character
-   if not char then return end
-   local hrp = char:FindFirstChild("HumanoidRootPart")
-   local hum = char:FindFirstChildOfClass("Humanoid")
-   if not hrp or not hum then return end
-   if not force then
-       if hum.FloorMaterial ~= Enum.Material.Air then return end
-       if not (hrp.Position.Y >= autoTPHeight) then return end
-   end
-   hrp.CFrame = CFrame.new(hrp.Position.X, -7.00, hrp.Position.Z) * CFrame.Angles(0, select(2, hrp.CFrame:ToEulerAnglesYXZ()), 0)
-   hrp.Velocity = Vector3.zero
-end
-autoTPConn = nil
-function startAutoTP()
-   if autoTPConn then coroutine.close(autoTPConn) end
-   autoTPConn = coroutine.create(function()
-       while autoTPEnabled do
-           task.wait(0.1)
-           pcall(function() doAutoTPDown(false) end)
-       end
-   end)
-   coroutine.resume(autoTPConn)
-end
-function stopAutoTP() autoTPEnabled = false; if autoTPConn then coroutine.close(autoTPConn); autoTPConn = nil end end
-function runTPFloor() pcall(function() doAutoTPDown(true) end) end
-
--- Environment Adjustments
-function enableStretchRez() stretchRezEnabled = true; workspace.CurrentCamera.FieldOfView = 107 end
-function disableStretchRez() stretchRezEnabled = false; workspace.CurrentCamera.FieldOfView = 70 end
-function enableAntiLag() antiLagEnabled = true; Lighting.GlobalShadows = false; Lighting.FogEnd = 1e10; Lighting.Brightness = 1 end
-function disableAntiLag() antiLagEnabled = false; Lighting.GlobalShadows = true; Lighting.FogEnd = 100000; Lighting.Brightness = 2 end
-
--- State Management
-unwalkSavedAnimate = nil
-function startUnwalk()
-   local c = LP.Character
-   if not c then return end
-   local hum = c:FindFirstChildOfClass("Humanoid")
-   if hum then for _,t in ipairs(hum:GetPlayingAnimationTracks()) do t:Stop() end end
-   local anim = c:FindFirstChild("Animate")
-   if anim then unwalkSavedAnimate = anim:Clone(); anim:Destroy() end
-end
-function stopUnwalk()
-   local c = LP.Character
-   if c and unwalkSavedAnimate then unwalkSavedAnimate:Clone().Parent = c; unwalkSavedAnimate = nil end
-end
-
-dropActive = false
+-- Drop and Teleport functions
 function runDrop()
-   if dropActive then return end
-   dropActive = true
    local char = LP.Character
    local root = char and char:FindFirstChild("HumanoidRootPart")
    if root then
@@ -320,7 +229,15 @@ function runDrop()
        task.wait(0.1)
        root.Velocity = Vector3.zero
    end
-   dropActive = false
+end
+
+function runTPFloor()
+   local char = LP.Character
+   local hrp = char and char:FindFirstChild("HumanoidRootPart")
+   if hrp then
+       hrp.CFrame = CFrame.new(hrp.Position.X, -7.00, hrp.Position.Z) * CFrame.Angles(0, select(2, hrp.CFrame:ToEulerAnglesYXZ()), 0)
+       hrp.Velocity = Vector3.zero
+   end
 end
 
 -- Aimbot Calculations
@@ -365,8 +282,6 @@ end
 function startBatAimbot()
    if aimbotConn then aimbotConn:Disconnect() end
    autoBatEnabled = true
-   if autoLeftEnabled then autoLeftEnabled = false; stopAutoLeft() end
-   if autoRightEnabled then autoRightEnabled = false; stopAutoRight() end
    local hum0 = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
    if hum0 then hum0.AutoRotate = false end
    aimbotConn = RunService.RenderStepped:Connect(function()
@@ -395,15 +310,6 @@ function startBatAimbot()
        yVel = math.clamp(yVel, -70, 110)
        local desiredVel = Vector3.new(flatDir.X * chaseSpeed, yVel, flatDir.Z * chaseSpeed)
        root.Velocity = root.Velocity:Lerp(desiredVel, 0.8)
-       local predictedPos = targetPos + targetVel * math.clamp(targetVel.Magnitude/150, 0.05, 0.2)
-       local toPredict = predictedPos - myPos
-       if toPredict.Magnitude > 0.1 then
-           local goalCF = CFrame.lookAt(myPos, predictedPos)
-           local diffCF = root.CFrame:Inverse() * goalCF
-           local rx, ry, rz = diffCF:ToEulerAnglesXYZ()
-           rx = math.clamp(rx, -2.5, 2.5); ry = math.clamp(ry, -2.5, 2.5); rz = math.clamp(rz, -2.5, 2.5)
-           root.AssemblyAngularVelocity = root.CFrame:VectorToWorldSpace(Vector3.new(rx*42, ry*42, rz*42))
-       end
        swingCurrentBat()
    end)
 end
@@ -417,50 +323,8 @@ function stopBatAimbot()
    if hum2 then hum2.AutoRotate = true end
 end
 
--- Fallback Frame Builder (Guarantees execution if script searches for it)
-function buildMainFrame()
-    local mainGui = Instance.new("ScreenGui")
-    mainGui.Name = "AtomicHub"
-    mainGui.ResetOnSpawn = false
-    mainGui.Parent = IsMobile and LP:WaitForChild("PlayerGui") or CoreGui
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, GUI_W, 0, GUI_H)
-    mainFrame.Position = UDim2.new(0.5, -GUI_W/2, 0.5, -GUI_H/2)
-    mainFrame.BackgroundColor3 = ATOMIC_COLORS.BG
-    mainFrame.Visible = true
-    mainFrame.Parent = mainGui
-    
-    -- Global Label reference for display mode updates
-    local modeLabel = Instance.new("TextLabel")
-    modeLabel.Size = UDim2.new(1, 0, 0, 20)
-    modeLabel.Position = UDim2.new(0, 0, 0, 60)
-    modeLabel.Text = "Stable"
-    modeLabel.TextColor3 = ATOMIC_COLORS.TOXIC
-    modeLabel.BackgroundTransparency = 1
-    modeLabel.Parent = mainFrame
-    modeValLbl = modeLabel
-    
-    main = mainFrame
-    return mainFrame
-end
-
--- Stubs for empty interface functions to prevent crashing
-function buildProgressBar() end
-function buildSpeedValues() end
-function buildSpeedKeybinds() end
-function buildBatAimbot() end
-function buildInstaGrab() end
-function buildSkyTheme() end
-function buildMovement() end
-function buildVisuals() end
-function buildSettings() end
-function showGui() if main then main.Visible = true end end
-function hideGui() if main then main.Visible = false end end
-
 -- ============================================================
---  ATOMIC HUB INTERFACE CONFIGURATION
+--  ATOMIC HUB MOBILE SCREEN BUTTONS LAYOUT
 -- ============================================================
 function buildMobileButtons()
    local mobileGui = Instance.new("ScreenGui")
@@ -471,4 +335,85 @@ function buildMobileButtons()
    local function makeBtn(actionKey, name, text, x, y, accentColor)
        local btn = Instance.new("TextButton")
        btn.Name = name
-       btn.Size = UDim2.new(
+       btn.Size = UDim2.new(0, 90, 0, 45)
+       btn.Position = UDim2.new(0, 10 + (x-1)*100, 0, 100 + (y-1)*55)
+       btn.BackgroundColor3 = BG_BTN
+       btn.TextColor3 = TXT_C
+       btn.Text = text
+       btn.Font = Enum.Font.GothamBold
+       btn.TextSize = 12
+       btn.Parent = mobileGui
+       
+       local st = Instance.new("UIStroke")
+       st.Thickness = 1
+       st.Color = accentColor
+       st.Transparency = 0.34
+       st.Parent = btn
+       
+       local f = Instance.new("UICorner")
+       f.CornerRadius = UDim.new(0, 6)
+       f.Parent = btn
+
+       local function setActive(isOn)
+           TS:Create(btn, TweenInfo.new(0.15), {TextColor3 = isOn and accentColor or TXT_C}):Play()
+       end
+       btn.Activated:Connect(function()
+           local action = MobileButtonActions[actionKey]
+           if action then action(setActive) end
+       end)
+       return setActive
+   end
+   
+   MobileButtonActions = {}
+   MobileButtonActions.autoLeft = function(sa)
+       autoLeftEnabled = not autoLeftEnabled
+       if autoLeftEnabled then startAutoLeft() else stopAutoLeft() end
+   end
+   MobileButtonActions.autoRight = function(sa)
+       autoRightEnabled = not autoRightEnabled
+       if autoRightEnabled then startAutoRight() else stopAutoRight() end
+   end
+   MobileButtonActions.autoBat = function(sa)
+       if not autoBatActive then
+           startBatAimbot()
+           autoBatActive = true
+       else
+           stopBatAimbot()
+           autoBatActive = false
+       end
+   end
+   MobileButtonActions.carry = function(sa)
+       speedMode = not speedMode
+   end
+   MobileButtonActions.drop = function(sa) runDrop() end
+   MobileButtonActions.tpDown = function(sa) runTPFloor() end
+   MobileButtonActions.lagCarry = function(sa)
+       local enabled = not (laggerToggled and speedMode)
+       laggerToggled = enabled; speedMode = enabled
+   end
+   MobileButtonActions.lagger = function(sa)
+       laggerToggled = not laggerToggled
+   end
+   
+   local setAL = makeBtn("autoLeft", "AutoLeft", "ORBIT\nLEFT", 1, 1, ACCENT)
+   local setAR = makeBtn("autoRight", "AutoRight", "ORBIT\nRIGHT", 2, 1, ICE)
+   local setAB = makeBtn("autoBat", "AutoBat", "RADAR AIM", 1, 2, ICE)
+   local setSP = makeBtn("carry", "CarrySpeed", "OVERDRIVE", 2, 2, ACCENT)
+   makeBtn("drop", "DropBrainrot", "NUKEOUT", 1, 3, ACCENT)
+   makeBtn("tpDown", "TPDown", "FALLOUT", 2, 3, ICE)
+   local setLC = makeBtn("lagCarry", "LaggerCarry", "FISSION\nCARRY", 1, 4, ICE)
+   local setLG = makeBtn("lagger", "LaggerSpeed", "FISSION\nSPEED", 2, 4, ACCENT)
+   
+   RunService.Heartbeat:Connect(function()
+       setAL(autoLeftEnabled)
+       setAR(autoRightEnabled)
+       setAB(autoBatActive)
+       setLG(laggerToggled)
+       setSP(speedMode)
+       setLC(laggerToggled and speedMode)
+   end)
+end
+
+-- Execute mobile layers
+buildMobileButtons()
+print("Atomic Hub UI Systems Ready.")
